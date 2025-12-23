@@ -1,0 +1,130 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Model files (usually large)
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.h5
+*.hdf5
+*.onnx
+*.pb
+*.tflite
+*.weights
+*.bin
+*.safetensors
+
+# Model configs directory (uncomment if configs are large or auto-generated)
+# configs/
+
+# Output files
+basketball_to_football_output/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.flv
+*.wmv
+detection_result_*.png
+output/
+outputs/
+results/
+# Only ignore generated images, keep source images if needed
+# Uncomment the following lines if you want to ignore all images:
+# *.jpg
+# *.jpeg
+# *.png
+# *.gif
+# *.bmp
+# *.tiff
+# *.webp
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.cache
+.cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Package manager (uv)
+.uv/
+.uvcache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Data files (if large - uncomment if you have large data files)
+# *.csv
+# *.json
+# *.parquet
+# *.feather
+# data/
+# datasets/
+
+# Weights and checkpoints directories
+weights/
+checkpoints/
+models/checkpoints/
+models/weights/
+
