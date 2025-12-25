@@ -503,7 +503,10 @@ def insert_segmented_drones(
     num_per_background=5,
     class_name="drone",
     download_backgrounds=True,
-    num_backgrounds=50
+    num_backgrounds=50,
+    min_size_ratio=0.03,
+    max_size_ratio=0.15,
+    train_ratio=0.8
 ):
     """
     將分割的 drone 插入到背景圖片中，生成合成數據集
@@ -518,17 +521,29 @@ def insert_segmented_drones(
         class_name: 類別名稱
         download_backgrounds: 是否下載背景圖片
         num_backgrounds: 下載的背景圖片數量
+        min_size_ratio: drone 相對於背景的最小尺寸比例（默認 0.03 = 3%）
+        max_size_ratio: drone 相對於背景的最大尺寸比例（默認 0.15 = 15%）
+        train_ratio: 訓練集比例（默認 0.8 = 80%，剩餘為驗證集）
     
     返回:
         輸出數據集目錄路徑
     """
     output_path = Path(output_dir)
     
-    # 創建輸出目錄結構
+    # 創建 YOLO 標準目錄結構（包含 train/val 分割）
     images_dir = output_path / "images"
     labels_dir = output_path / "labels"
     images_dir.mkdir(parents=True, exist_ok=True)
     labels_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 創建訓練/驗證子目錄
+    train_images_dir = images_dir / "train"
+    train_labels_dir = labels_dir / "train"
+    val_images_dir = images_dir / "val"
+    val_labels_dir = labels_dir / "val"
+    
+    for d in [train_images_dir, train_labels_dir, val_images_dir, val_labels_dir]:
+        d.mkdir(parents=True, exist_ok=True)
     
     print("\n" + "="*60)
     print("生成合成 Drone 數據集")
@@ -576,14 +591,19 @@ def insert_segmented_drones(
     
     # 步驟 3: 生成合成圖像
     total_generated = 0
+    train_count = 0
+    val_count = 0
     class_id = 0
     
     print("\n" + "="*60)
     print("開始生成合成圖像")
     print("="*60)
+    print(f"訓練集比例: {train_ratio*100:.0f}%, 驗證集比例: {(1-train_ratio)*100:.0f}%")
     
-    pbar = tqdm(total=len(background_images) * num_per_background, desc="生成合成圖像", unit="張")
+    total_images = len(background_images) * num_per_background
+    pbar = tqdm(total=total_images, desc="生成合成圖像", unit="張")
     
+    image_idx = 0
     for bg_idx, bg_path in enumerate(background_images):
         background = cv2.imread(str(bg_path))
         if background is None:
@@ -593,13 +613,37 @@ def insert_segmented_drones(
         
         # 每個背景生成 num_per_background 張合成圖像
         for synth_idx in range(num_per_background):
+            # 決定是訓練集還是驗證集（基於總體比例）
+            is_train = (image_idx % (1 / (1 - train_ratio)) >= 1) if train_ratio < 1.0 else True
+            # 簡化：每 10 張中 8 張訓練，2 張驗證（如果 train_ratio=0.8）
+            is_train = (image_idx % 10 < int(10 * train_ratio))
+            
+            if is_train:
+                images_dst = train_images_dir
+                labels_dst = train_labels_dir
+                train_count += 1
+            else:
+                images_dst = val_images_dir
+                labels_dst = val_labels_dir
+                val_count += 1
             # 隨機選擇一個 drone
             drone_img = random.choice(drone_images).copy()
             
             # 隨機變換
-            # 1. 縮放
-            scale = random.uniform(0.2, 1.0)
-            drone_img = resize_drone(drone_img, min_scale=scale, max_scale=scale)
+            # 1. 智能縮放 - 根據背景尺寸計算合適的大小
+            drone_h, drone_w = drone_img.shape[:2]
+            bg_diagonal = math.sqrt(bg_w**2 + bg_h**2)
+            drone_diagonal = math.sqrt(drone_w**2 + drone_h**2)
+            
+            # 計算合適的縮放比例（根據參數設置，看起來更自然）
+            target_ratio = random.uniform(min_size_ratio, max_size_ratio)
+            target_size = bg_diagonal * target_ratio
+            scale = target_size / drone_diagonal if drone_diagonal > 0 else 0.1
+            
+            # 應用縮放
+            new_h = max(10, int(drone_h * scale))
+            new_w = max(10, int(drone_w * scale))
+            drone_img = cv2.resize(drone_img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
             
             # 2. 旋轉
             if random.random() > 0.3:  # 70% 概率旋轉
@@ -617,28 +661,33 @@ def insert_segmented_drones(
             if random.random() > 0.5:
                 result = add_shadow_effect(result, bbox)
             
-            # 保存合成圖像
+            # 保存合成圖像到對應的目錄（train 或 val）
             image_filename = f"synth_{bg_idx:04d}_{synth_idx:02d}.jpg"
-            image_path = images_dir / image_filename
+            image_path = images_dst / image_filename
             cv2.imwrite(str(image_path), result)
             
-            # 生成 YOLO 格式標籤
+            # 生成 YOLO 格式標籤到對應的目錄
             yolo_bbox = convert_bbox_to_yolo_format(bbox, bg_w, bg_h)
-            label_path = labels_dir / f"{Path(image_filename).stem}.txt"
+            label_path = labels_dst / f"{Path(image_filename).stem}.txt"
             
             with open(label_path, 'w') as f:
                 f.write(f"{class_id} {yolo_bbox[0]:.6f} {yolo_bbox[1]:.6f} {yolo_bbox[2]:.6f} {yolo_bbox[3]:.6f}\n")
             
             total_generated += 1
+            image_idx += 1
+            pbar.set_postfix({
+                '訓練': train_count,
+                '驗證': val_count
+            })
             pbar.update(1)
     
     pbar.close()
     
-    # 創建數據集配置文件
+    # 創建數據集配置文件（YOLO 標準格式）
     dataset_yaml = f"""# YOLO 合成數據集配置文件
 path: {output_path.absolute()}
-train: images
-val: images
+train: images/train
+val: images/val
 
 # 類別
 names:
@@ -656,6 +705,8 @@ names:
     print("合成數據集生成完成！")
     print("="*60)
     print(f"生成圖像: {total_generated} 張")
+    print(f"  訓練集: {train_count} 張 ({train_count/total_generated*100:.1f}%)")
+    print(f"  驗證集: {val_count} 張 ({val_count/total_generated*100:.1f}%)")
     print(f"使用背景: {len(background_images)} 張")
     print(f"輸出目錄: {output_path}")
     print(f"配置文件: {output_path / 'dataset.yaml'}")
@@ -681,7 +732,9 @@ def main():
         num_per_background=5,  # 每個背景生成 5 張
         class_name="drone",
         download_backgrounds=True,
-        num_backgrounds=50  # 下載 50 張背景圖片
+        num_backgrounds=50,  # 下載 50 張背景圖片
+        min_size_ratio=0.03,  # drone 最小尺寸比例（3%，適合遠景）
+        max_size_ratio=0.15   # drone 最大尺寸比例（15%，適合近景）
     )
     
     print(f"\n合成數據集已生成: {output_path}")

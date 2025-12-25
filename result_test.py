@@ -6,7 +6,7 @@ best_model_path = "Drone.pt"
 model = YOLO(str(best_model_path))
 
 # 測試圖像路徑（請替換為您的測試圖像）
-test_image_path = "test2.jpg"
+test_image_path = "test4.jpg"
 
 # 進行預測
 results = model.predict(test_image_path, save=True, conf=0.25)
