@@ -30,7 +30,7 @@ class VideoProcessor:
         
         self.device = device
         self.sam2_model = SAM2Model(device=device)
-        self.dino_detector = GroundedDINODetector()
+        self.dino_detector = GroundedDINODetector(device=device)
         self.football_processor = FootballImageProcessor()
     
     def process_video(self, video_path, output_video_path=None,

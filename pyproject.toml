@@ -19,4 +19,5 @@ dependencies = [
     "sentencepiece",
     "protobuf",
     "scikit-learn>=1.0.0",
+    "ultralytics>=8.3.241",
 ]
