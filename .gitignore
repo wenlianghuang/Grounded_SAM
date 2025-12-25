@@ -129,3 +129,4 @@ models/checkpoints/
 models/weights/
 
 backgrounds/*
+synthetic_drone_dataset/*
